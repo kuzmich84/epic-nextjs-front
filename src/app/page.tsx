@@ -1,5 +1,7 @@
+import { FeatureSection } from '@/components/custom/feature-section'
 import { HeroSection } from '@/components/custom/hero-section'
-import { flattenAttributes } from '@/lib/utils'
+import { getHomePageData } from '@/data/loaders'
+import { flattenAttributes, getStrapiURL } from '@/lib/utils'
 import qs from 'qs'
 
 const homePageQuery = qs.stringify({
@@ -12,24 +14,34 @@ const homePageQuery = qs.stringify({
         link: {
           populate: true,
         },
+        feature: {
+          populate: true,
+        },
       },
     },
   },
 })
 
-async function getStrapiData(path: string) {
-  const baseUrl = 'http://localhost:1337'
+function blockRenderer(block: any) {
+  switch (block.__component) {
+    case 'layout.hero-section':
+      return <HeroSection key={block.id} data={block} />
+    case 'layout.feautures-section':
+      return <FeatureSection key={block.id} data={block} />
+    default:
+      return null
+  }
+}
 
+async function getStrapiData(path: string) {
+  const baseUrl = getStrapiURL()
   const url = new URL(path, baseUrl)
   url.search = homePageQuery
-
-  console.log(url.href)
 
   try {
     const response = await fetch(url.href, { cache: 'no-store' })
     const data = await response.json()
     const flattenedData = flattenAttributes(data)
-    console.dir(flattenedData, { depth: null })
     return flattenedData
   } catch (error) {
     console.log(error)
@@ -37,13 +49,10 @@ async function getStrapiData(path: string) {
 }
 
 export default async function Home() {
-  const strapiData = await getStrapiData('/api/home-page')
+  const strapiData = await getHomePageData()
 
-  const { title, description, blocks } = strapiData
+  const { blocks } = strapiData
+  if (!blocks) return <p>No sections found</p>
 
-  return (
-    <main className="container py-6">
-      <HeroSection data={blocks[0]} />
-    </main>
-  )
+  return <main>{blocks.map(blockRenderer)}</main>
 }
